@@ -1,81 +1,110 @@
 """
-AttentionX – Whisper Transcriber
-Transcribes audio using OpenAI Whisper with word-level timestamps.
+AttentionX - Groq Whisper Transcriber
+Transcribes audio using Groq's Whisper models with word-level timestamps.
 
-Whisper gives us:
+Groq returns:
   - Full transcript text
-  - Segment-level timestamps (sentence level)
-  - Word-level timestamps (when using word_timestamps=True)
+  - Segment-level timestamps
+  - Word-level timestamps when requested
 
 This is the FOUNDATION for the entire virality engine.
 """
 
 import logging
-from typing import Optional
 from pathlib import Path
 
-from attentionx.backend.models.schemas import TranscriptSegment, TranscriptResult
-from attentionx.backend.config import WHISPER_MODEL
+from attentionx.backend.config import GROQ_API_KEY, WHISPER_MODEL
+from attentionx.backend.models.schemas import TranscriptResult, TranscriptSegment
 
 logger = logging.getLogger(__name__)
 
 
+def _get_value(item, key, default=None):
+    if item is None:
+        return default
+    if isinstance(item, dict):
+        return item.get(key, default)
+    return getattr(item, key, default)
+
+
+def _coerce_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def transcribe(audio_path: str) -> TranscriptResult:
-    """
-    Transcribe audio using OpenAI Whisper.
+    """Transcribe audio using Groq Whisper."""
+    try:
+        from groq import Groq  # pyright: ignore[reportMissingImports]
+    except ImportError as exc:
+        raise RuntimeError(
+            "Groq SDK is not installed. Add 'groq' to requirements and install dependencies."
+        ) from exc
 
-    Parameters
-    ----------
-    audio_path : str
-        Path to the 16kHz mono WAV audio file.
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY is not configured in .env")
 
-    Returns
-    -------
-    TranscriptResult
-        Structured transcript with segments and word-level timestamps.
-    """
-    import whisper
+    audio_file = Path(audio_path)
+    file_size_mb = audio_file.stat().st_size / (1024 * 1024)
+    if file_size_mb > 95:
+        logger.warning(
+            "Groq speech-to-text uploads above ~100MB may fail; consider shorter inputs or chunking."
+        )
 
-    logger.info(f"Loading Whisper model: {WHISPER_MODEL}")
-    model = whisper.load_model(WHISPER_MODEL)
+    client = Groq(api_key=GROQ_API_KEY)
 
-    logger.info(f"Transcribing: {audio_path}")
-    result = model.transcribe(
-        audio_path,
-        word_timestamps=True,    # Critical: enables word-level timing
-        verbose=False,
-        language=None,           # Auto-detect language
-        condition_on_previous_text=True,
-    )
+    logger.info(f"Loading Groq Whisper model: {WHISPER_MODEL}")
+    logger.info(f"Transcribing with Groq: {audio_file}")
 
-    # ── Parse segments ────────────────────────────────────────────────────────
+    with audio_file.open("rb") as file_handle:
+        result = client.audio.transcriptions.create(
+            file=file_handle,
+            model=WHISPER_MODEL,
+            response_format="verbose_json",
+            timestamp_granularities=["word", "segment"],
+            temperature=0.0,
+        )
+
+    raw_segments = _get_value(result, "segments", []) or []
     segments: list[TranscriptSegment] = []
-    for i, seg in enumerate(result.get("segments", [])):
+
+    for index, segment in enumerate(raw_segments):
+        raw_words = _get_value(segment, "words", []) or []
         words = []
-        for w in seg.get("words", []):
+
+        for raw_word in raw_words:
+            word_text = str(_get_value(raw_word, "word", "") or "").strip()
+            if not word_text:
+                continue
+
             words.append({
-                "word": w["word"].strip(),
-                "start": round(w["start"], 3),
-                "end": round(w["end"], 3),
-                "probability": round(w.get("probability", 1.0), 3),
+                "word": word_text,
+                "start": round(_coerce_float(_get_value(raw_word, "start", 0.0)), 3),
+                "end": round(_coerce_float(_get_value(raw_word, "end", 0.0)), 3),
+                "probability": round(_coerce_float(_get_value(raw_word, "probability", 1.0), 1.0), 3),
             })
 
+        segment_text = str(_get_value(segment, "text", "") or "").strip()
+        if not segment_text:
+            segment_text = " ".join(word["word"] for word in words).strip()
+
         segments.append(TranscriptSegment(
-            id=i,
-            start=round(seg["start"], 3),
-            end=round(seg["end"], 3),
-            text=seg["text"].strip(),
-            words=words,
+            id=index,
+            start=round(_coerce_float(_get_value(segment, "start", 0.0)), 3),
+            end=round(_coerce_float(_get_value(segment, "end", 0.0)), 3),
+            text=segment_text,
+            words=words or None,
         ))
 
-    full_text = " ".join(s.text for s in segments)
-
-    # Get audio duration from last segment
-    total_duration = segments[-1].end if segments else 0.0
+    full_text = str(_get_value(result, "text", "") or "").strip()
+    if not full_text:
+        full_text = " ".join(segment.text for segment in segments).strip()
 
     transcript = TranscriptResult(
-        language=result.get("language", "en"),
-        duration=round(total_duration, 2),
+        language=str(_get_value(result, "language", "en") or "en"),
+        duration=round(max((segment.end for segment in segments), default=0.0), 2),
         segments=segments,
         full_text=full_text,
     )

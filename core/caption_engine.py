@@ -4,7 +4,7 @@ Generates punchy, synced captions and burns them onto clips using FFmpeg.
 
 Caption philosophy:
   - Max 3-5 words per line (mobile screen readability)
-  - Word-level timing from Whisper for perfect sync
+    - Word-level timing from Groq Whisper for perfect sync
   - Key words highlighted in a contrasting color
   - Clean, readable font with stroke/shadow
 """

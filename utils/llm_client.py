@@ -1,87 +1,119 @@
 """
-AttentionX – LLM Client
-Unified interface for OpenAI / Google Gemini.
-Switch provider via LLM_PROVIDER env var.
+AttentionX - Gemini LLM Client
+Unified interface for Gemini-powered content generation with key rotation.
 """
 
-import os
 import json
 import logging
+from threading import Lock
 from typing import Optional
+
+from attentionx.backend.config import GEMINI_API_KEY, GEMINI_API_KEYS
 
 logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    """
-    Unified LLM client supporting OpenAI GPT-4 and Google Gemini.
-    Falls back to a rule-based mock if no API keys are configured.
-    """
+    """Gemini-only client with key rotation and a mock fallback."""
 
     def __init__(self):
-        from attentionx.backend.config import LLM_PROVIDER, OPENAI_API_KEY, GEMINI_API_KEY
-        self.provider = LLM_PROVIDER
-        self.openai_key = OPENAI_API_KEY
-        self.gemini_key = GEMINI_API_KEY
-        self._openai_client = None
-        self._gemini_model = None
+        self.gemini_keys = self._load_gemini_keys()
+        self._key_cursor = 0
+        self._gemini_lock = Lock()
         self._initialize()
 
+    def _load_gemini_keys(self) -> list[str]:
+        """Normalize the configured Gemini keys into a unique ordered list."""
+        keys = [key.strip() for key in GEMINI_API_KEYS if key.strip()]
+        if not keys and GEMINI_API_KEY.strip():
+            keys = [GEMINI_API_KEY.strip()]
+
+        unique_keys: list[str] = []
+        for key in keys:
+            if key not in unique_keys:
+                unique_keys.append(key)
+        return unique_keys
+
     def _initialize(self):
-        """Initialize the appropriate client."""
-        if self.provider == "openai" and self.openai_key:
-            try:
-                from openai import OpenAI
-                self._openai_client = OpenAI(api_key=self.openai_key)
-                logger.info("LLM: Using OpenAI GPT-4o-mini")
-            except ImportError:
-                logger.warning("openai package not installed; falling back to mock")
-        elif self.provider == "gemini" and self.gemini_key:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=self.gemini_key)
-                self._gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-                logger.info("LLM: Using Google Gemini 1.5 Flash")
-            except ImportError:
-                logger.warning("google-generativeai not installed; falling back to mock")
-        else:
-            logger.warning("No LLM API key configured – using intelligent mock responses")
+        """Initialize the Gemini client."""
+        if not self.gemini_keys:
+            logger.warning("No Gemini API keys configured; using intelligent mock responses")
+            return
+
+        logger.info("LLM: Gemini key rotation enabled (%d keys)", len(self.gemini_keys))
 
     def complete(self, prompt: str, max_tokens: int = 1024) -> str:
         """
         Send a prompt and return the completion text.
-        Automatically falls back to mock if no client is ready.
+        Falls back to a mock response when Gemini is unavailable.
         """
-        if self._openai_client:
-            return self._openai_complete(prompt, max_tokens)
-        elif self._gemini_model:
+        if self.gemini_keys:
             return self._gemini_complete(prompt, max_tokens)
-        else:
-            return self._mock_complete(prompt)
-
-    def _openai_complete(self, prompt: str, max_tokens: int) -> str:
-        try:
-            response = self._openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert viral content strategist specializing in short-form video."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=max_tokens,
-                temperature=0.8,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"OpenAI error: {e}")
-            return self._mock_complete(prompt)
+        return self._mock_complete(prompt)
 
     def _gemini_complete(self, prompt: str, max_tokens: int) -> str:
-        try:
-            response = self._gemini_model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
+        with self._gemini_lock:
+            last_error: Exception | None = None
+
+            for offset in range(len(self.gemini_keys)):
+                key_index = (self._key_cursor + offset) % len(self.gemini_keys)
+                api_key = self.gemini_keys[key_index]
+                try:
+                    response = self._generate_with_key(api_key, prompt, max_tokens)
+                    text = (getattr(response, "text", "") or "").strip()
+                    if text:
+                        self._key_cursor = key_index
+                        return text
+
+                    last_error = RuntimeError("Gemini returned an empty response")
+                    logger.warning("Gemini returned an empty response; rotating to next key")
+                except Exception as exc:
+                    last_error = exc
+                    if self._is_quota_or_rate_limit_error(exc):
+                        logger.warning("Gemini key hit quota/rate limit; rotating to next key: %s", exc)
+                    else:
+                        logger.warning("Gemini key failed; rotating to next key: %s", exc)
+
+            if last_error is not None:
+                logger.error("All Gemini keys failed; using mock fallback. Last error: %s", last_error)
+                self._key_cursor = (self._key_cursor + 1) % len(self.gemini_keys)
             return self._mock_complete(prompt)
+
+    def _generate_with_key(self, api_key: str, prompt: str, max_tokens: int):
+        import google.generativeai as genai
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        return model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.8,
+                "max_output_tokens": max_tokens,
+            },
+        )
+
+    @staticmethod
+    def _is_quota_or_rate_limit_error(exc: Exception) -> bool:
+        message = str(exc).lower()
+        error_name = exc.__class__.__name__.lower()
+
+        if any(token in message for token in ["quota", "rate limit", "too many requests", "resource exhausted", "429"]):
+            return True
+
+        try:
+            from google.api_core import exceptions as google_exceptions
+
+            return isinstance(
+                exc,
+                (
+                    google_exceptions.ResourceExhausted,
+                    google_exceptions.TooManyRequests,
+                    google_exceptions.ServiceUnavailable,
+                    google_exceptions.DeadlineExceeded,
+                ),
+            )
+        except Exception:
+            return any(token in error_name for token in ["resourceexhausted", "toomanyrequests"])
 
     def _mock_complete(self, prompt: str) -> str:
         """
@@ -136,7 +168,7 @@ class LLMClient:
                     return json.loads(match.group(1))
                 except Exception:
                     pass
-            logger.warning(f"Could not parse LLM JSON response: {raw[:200]}")
+            logger.warning(f"Could not parse Gemini JSON response: {raw[:200]}")
             return {}
 
 

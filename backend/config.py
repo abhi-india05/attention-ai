@@ -1,9 +1,10 @@
 """
-AttentionX – Configuration Management
+AttentionX - Configuration Management
 Centralizes all environment variables, paths, and system settings.
 """
 
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -21,15 +22,29 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 for _dir in [UPLOAD_DIR, CLIPS_DIR, VIDEOS_DIR]:
     _dir.mkdir(parents=True, exist_ok=True)
 
+def _load_gemini_keys() -> list[str]:
+    """Load one or more Gemini API keys from the environment."""
+    raw_keys = os.getenv("GEMINI_API_KEYS", "").strip()
+    if not raw_keys:
+        raw_keys = os.getenv("GEMINI_API_KEY", "").strip()
+
+    if not raw_keys:
+        return []
+
+    return [
+        key.strip()
+        for key in re.split(r"[;,\n]+", raw_keys)
+        if key.strip()
+    ]
+
+
 # ── API Keys ─────────────────────────────────────────────────────────────────
-OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEYS: list[str] = _load_gemini_keys()
+GEMINI_API_KEY: str = GEMINI_API_KEYS[0] if GEMINI_API_KEYS else ""
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
-# Which LLM to use: "openai" | "gemini"
-LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
-
-# Whisper model size: tiny | base | small | medium | large
-WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")
+# Groq Whisper model ID: whisper-large-v3 | whisper-large-v3-turbo
+WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "whisper-large-v3")
 
 # ── Platform Presets ──────────────────────────────────────────────────────────
 PLATFORM_PRESETS = {

@@ -19,7 +19,7 @@
 └──────────────────┬───────────────────────────────┘
         ┌──────────┼──────────────┐
         ▼          ▼              ▼
-   Whisper    Virality        MoviePy/CV2
+     Groq Whisper Virality      MoviePy/CV2
    (Speech)   Engine          (Video)
         ▼          ▼              ▼
    Emotion    LLM Hooks      MediaPipe
@@ -43,7 +43,7 @@ attentionx/
 │       └── video.py        # Upload, process, clips endpoints
 ├── core/
 │   ├── audio_extractor.py  # FFmpeg audio extraction (16kHz WAV)
-│   ├── transcriber.py      # Whisper with word timestamps
+│   ├── transcriber.py      # Groq Whisper with word timestamps
 │   ├── emotion_analyzer.py # Librosa emotion timeline
 │   ├── virality_engine.py  # 5-signal virality scoring
 │   ├── clip_generator.py   # Intelligent clip boundary expansion
@@ -56,7 +56,7 @@ attentionx/
 │   ├── style.css           # Glassmorphism + animation CSS
 │   └── app.js              # Upload, SSE, charts, modal logic
 ├── utils/
-│   ├── llm_client.py       # OpenAI/Gemini unified client
+│   ├── llm_client.py       # Gemini client
 │   └── file_utils.py       # FFprobe metadata, file helpers
 ├── uploads/                # Incoming video uploads
 ├── outputs/
@@ -150,7 +150,8 @@ Edit `attentionx/backend/config.py` to tune:
 - `VIRALITY_WEIGHTS` — adjust signal importance
 - `VIRAL_KEYWORDS` — add your own trigger words
 - `PLATFORM_PRESETS` — customize per-platform settings
-- `WHISPER_MODEL` — balance speed vs accuracy
+- `GEMINI_API_KEYS` — one or more Gemini keys for automatic failover
+- `WHISPER_MODEL` — Groq Whisper model id (e.g. `whisper-large-v3`)
 - `SMOOTHING_WINDOW` — face tracking smoothness
 
 ---
@@ -177,7 +178,7 @@ Edit `attentionx/backend/config.py` to tune:
 ## 🔮 Future Improvements
 
 ### Performance
-- Replace Whisper with `faster-whisper` (4x speed)
+- If you need a local fallback, use `faster-whisper` (4x speed)
 - GPU acceleration for video processing
 - Redis job queue for horizontal scaling
 - CDN delivery for clip files

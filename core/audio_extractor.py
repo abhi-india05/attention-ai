@@ -1,6 +1,6 @@
 """
-AttentionX – Audio Extractor
-Extracts audio from video using FFmpeg for Whisper transcription.
+AttentionX - Audio Extractor
+Extracts audio from video using FFmpeg for Groq Whisper transcription.
 """
 
 import subprocess
@@ -12,21 +12,21 @@ logger = logging.getLogger(__name__)
 
 def extract_audio(video_path: str, output_dir: Path) -> str:
     """
-    Extract audio from video as a 16kHz mono WAV file.
-    Whisper works best with 16kHz mono WAV.
+    Extract audio from video as a 16kHz mono FLAC file.
+    Groq recommends compact audio inputs, and FLAC keeps the file size smaller.
 
     Args:
         video_path: Path to the source video file.
         output_dir: Directory to save the extracted audio.
 
     Returns:
-        Path to the extracted WAV file.
+        Path to the extracted FLAC file.
 
     Raises:
         RuntimeError: If FFmpeg extraction fails.
     """
     video_path = Path(video_path)
-    audio_path = output_dir / f"{video_path.stem}_audio.wav"
+    audio_path = output_dir / f"{video_path.stem}_audio.flac"
 
     logger.info(f"Extracting audio from: {video_path}")
 
@@ -34,8 +34,8 @@ def extract_audio(video_path: str, output_dir: Path) -> str:
         "ffmpeg", "-y",
         "-i", str(video_path),
         "-vn",                    # No video
-        "-acodec", "pcm_s16le",   # PCM 16-bit
-        "-ar", "16000",           # 16kHz sample rate (Whisper optimum)
+        "-acodec", "flac",        # Lossless compression for Groq uploads
+        "-ar", "16000",           # 16kHz sample rate for speech recognition
         "-ac", "1",               # Mono
         "-af", "loudnorm",        # Normalize audio levels
         str(audio_path),

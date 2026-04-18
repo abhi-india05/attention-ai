@@ -1,17 +1,49 @@
 """
-AttentionX – Application Entry Point
+AttentionX - Application Entry Point
 Run with: python run.py
-Or: uvicorn attentionx.backend.main:app --reload --port 8000
 """
+
+import sys
+import socket
+import os
+from pathlib import Path
 
 import uvicorn
 
+
+CURRENT_DIR = Path(__file__).resolve().parent
+PROJECT_PARENT = CURRENT_DIR.parent
+
+if str(PROJECT_PARENT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_PARENT))
+
+
+def _port_is_available(port: int, host: str = "127.0.0.1") -> bool:
+    """Return True when a local TCP port does not already accept connections."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.2)
+        return sock.connect_ex((host, port)) != 0
+
+
+def _find_available_port(start_port: int, stop_port: int = 8100) -> int:
+    """Find the first available port in a small local range."""
+    for port in range(start_port, stop_port + 1):
+        if _port_is_available(port):
+            return port
+    raise RuntimeError(f"No available port found between {start_port} and {stop_port}")
+
 if __name__ == "__main__":
+    preferred_port = int(os.getenv("PORT", "8000"))
+    port = _find_available_port(preferred_port)
+
+    if port != preferred_port:
+        print(f"Port {preferred_port} is busy. Starting on port {port} instead.")
+
     uvicorn.run(
         "attentionx.backend.main:app",
-        host="0.0.0.0",
-        port=8000,
+        host="127.0.0.1",
+        port=port,
         reload=True,
-        reload_dirs=["attentionx"],
+        reload_dirs=[str(CURRENT_DIR)],
         log_level="info",
     )

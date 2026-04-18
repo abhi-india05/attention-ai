@@ -98,7 +98,7 @@ def _pipeline_sync(
         update_step(job_id, "audio_extraction", "done", "Audio extracted", 100)
 
         # ── Step 2: Transcribe ────────────────────────────────────────────────
-        update_step(job_id, "transcription", "running", "Running Whisper transcription...", 5)
+        update_step(job_id, "transcription", "running", "Running Groq transcription...", 5)
         transcript = transcribe(temp_audio_path)
         update_step(job_id, "transcription", "done",
                     f"Transcribed {len(transcript.segments)} segments in {transcript.language}", 100)

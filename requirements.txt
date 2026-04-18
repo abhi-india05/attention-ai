@@ -8,8 +8,7 @@ aiofiles==23.2.1
 python-dotenv==1.0.1
 
 # ── AI / ML Core ──────────────────────────────────────────────────
-openai-whisper==20231117        # Speech transcription
-openai==1.30.0                  # LLM (GPT-4o-mini)
+groq                            # Speech transcription via Groq Whisper API
 
 # ── Audio Analysis ────────────────────────────────────────────────
 librosa==0.10.1                 # Audio feature extraction
