@@ -10,12 +10,15 @@ from pathlib import Path
 
 import uvicorn
 
+import sitecustomize  # noqa: F401
+from backend.main import app as fastapi_app
+
 
 CURRENT_DIR = Path(__file__).resolve().parent
-PROJECT_PARENT = CURRENT_DIR.parent
 
-if str(PROJECT_PARENT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_PARENT))
+# Keep the repository root importable so `backend.*` works in flat deployments.
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 
 def _port_is_available(port: int, host: str = "127.0.0.1") -> bool:
@@ -40,10 +43,9 @@ if __name__ == "__main__":
         print(f"Port {preferred_port} is busy. Starting on port {port} instead.")
 
     uvicorn.run(
-        "attentionx.backend.main:app",
+        fastapi_app,
         host="127.0.0.1",
         port=port,
-        reload=True,
-        reload_dirs=[str(CURRENT_DIR)],
+        reload=False,
         log_level="info",
     )
