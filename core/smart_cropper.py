@@ -22,6 +22,7 @@ from attentionx.backend.config import (
     OUTPUT_WIDTH, OUTPUT_HEIGHT,
     FACE_DETECTION_CONFIDENCE, SMOOTHING_WINDOW, ZOOM_FACTOR
 )
+from attentionx.utils.file_utils import resolve_ffmpeg_executable
 
 logger = logging.getLogger(__name__)
 
@@ -217,8 +218,14 @@ def _crop_center_ffmpeg(input_path: str, output_path: str) -> None:
     Fallback: Use FFmpeg to center-crop to 9:16.
     Quick, no face detection.
     """
+    ffmpeg_path = resolve_ffmpeg_executable()
+    if not ffmpeg_path:
+        raise RuntimeError(
+            "FFmpeg executable not found. Install FFmpeg or set FFMPEG_PATH in .env."
+        )
+
     cmd = [
-        "ffmpeg", "-y", "-i", str(input_path),
+        ffmpeg_path, "-y", "-i", str(input_path),
         "-vf", (
             f"crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
             f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT}"
@@ -234,8 +241,14 @@ def _crop_center_ffmpeg(input_path: str, output_path: str) -> None:
 
 def _mux_audio(source_video: str, video_no_audio: str, output: str) -> None:
     """Combine video track from cropped file with audio from original."""
+    ffmpeg_path = resolve_ffmpeg_executable()
+    if not ffmpeg_path:
+        raise RuntimeError(
+            "FFmpeg executable not found. Install FFmpeg or set FFMPEG_PATH in .env."
+        )
+
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_path, "-y",
         "-i", str(video_no_audio),
         "-i", str(source_video),
         "-c:v", "libx264", "-preset", "fast",

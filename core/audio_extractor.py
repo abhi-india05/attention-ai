@@ -7,6 +7,8 @@ import subprocess
 import logging
 from pathlib import Path
 
+from attentionx.utils.file_utils import resolve_ffmpeg_executable
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,8 +32,14 @@ def extract_audio(video_path: str, output_dir: Path) -> str:
 
     logger.info(f"Extracting audio from: {video_path}")
 
+    ffmpeg_path = resolve_ffmpeg_executable()
+    if not ffmpeg_path:
+        raise RuntimeError(
+            "FFmpeg executable not found. Install FFmpeg or set FFMPEG_PATH in .env."
+        )
+
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_path, "-y",
         "-i", str(video_path),
         "-vn",                    # No video
         "-acodec", "flac",        # Lossless compression for Groq uploads

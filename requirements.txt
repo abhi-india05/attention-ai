@@ -11,7 +11,7 @@ python-dotenv==1.0.1
 groq                            # Speech transcription via Groq Whisper API
 
 # ── Audio Analysis ────────────────────────────────────────────────
-librosa==0.10.1                 # Audio feature extraction
+librosa==0.11.0                 # Audio feature extraction
 soundfile==0.12.1               # Audio I/O
 
 # ── Video Processing ─────────────────────────────────────────────

@@ -22,6 +22,7 @@ from attentionx.backend.config import (
     MIN_CLIP_DURATION, MAX_CLIP_DURATION, CLIP_CONTEXT_PADDING,
     MAX_CLIPS, PLATFORM_PRESETS, CLIPS_DIR
 )
+from attentionx.utils.file_utils import resolve_ffmpeg_executable
 
 logger = logging.getLogger(__name__)
 
@@ -153,8 +154,14 @@ def extract_clip_ffmpeg(
     """
     import subprocess
 
+    ffmpeg_path = resolve_ffmpeg_executable()
+    if not ffmpeg_path:
+        raise RuntimeError(
+            "FFmpeg executable not found. Install FFmpeg or set FFMPEG_PATH in .env."
+        )
+
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_path, "-y",
         "-ss", str(start),
         "-to", str(end),
         "-i", str(video_path),

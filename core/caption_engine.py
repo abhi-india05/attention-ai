@@ -19,6 +19,7 @@ from attentionx.backend.models.schemas import (
     Caption, TranscriptResult, TranscriptSegment, Platform
 )
 from attentionx.backend.config import PLATFORM_PRESETS
+from attentionx.utils.file_utils import resolve_ffmpeg_executable
 
 logger = logging.getLogger(__name__)
 
@@ -215,8 +216,14 @@ def burn_captions(
         f"Bold=1'"
     )
 
+    ffmpeg_path = resolve_ffmpeg_executable()
+    if not ffmpeg_path:
+        raise RuntimeError(
+            "FFmpeg executable not found. Install FFmpeg or set FFMPEG_PATH in .env."
+        )
+
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_path, "-y",
         "-i", str(video_path),
         "-vf", subtitles_filter,
         "-c:v", "libx264", "-preset", "fast", "-crf", "23",
