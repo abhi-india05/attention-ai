@@ -16,7 +16,7 @@ import json
 
 from attentionx.backend.config import FRONTEND_DIR, CLIPS_DIR
 from attentionx.backend.routers.video import router as video_router
-from attentionx.backend.models.job import get_job
+from attentionx.backend.models.job import get_job, build_status_response
 from attentionx.utils.file_utils import check_ffmpeg_installed
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -84,42 +84,45 @@ async def stream_progress(job_id: str):
         es.onmessage = (e) => { const data = JSON.parse(e.data); ... };
     """
     async def event_generator():
-        last_status = None
         last_progress = -1
-        max_polls = 360  # 6 minute timeout (1 poll/second)
+        last_status = None
+        max_polls = 600  # 10-minute timeout (1 poll/second)
 
         for _ in range(max_polls):
             job = get_job(job_id)
             if not job:
-                yield f"data: {json.dumps({'error': 'Job not found'})}\n\n"
+                yield f"data: {json.dumps({'error': 'Job not found', 'type': 'error'})}\n\n"
                 break
 
-            # Only send update if something changed
-            if job.status != last_status or job.total_progress != last_progress:
-                last_status = job.status
-                last_progress = job.total_progress
+            # Build rich status payload (same shape as polling endpoint)
+            payload = build_status_response(job)
 
-                payload = {
-                    "job_id": job_id,
-                    "status": job.status.value,
-                    "total_progress": job.total_progress,
-                    "steps": [
-                        {
-                            "name": s.name,
-                            "status": s.status,
-                            "message": s.message,
-                            "progress": s.progress,
-                        }
-                        for s in job.steps
-                    ],
-                    "clips_count": len(job.clips),
-                    "error": job.error,
+            # Also include the per-step detail list for the live step cards
+            payload["steps"] = [
+                {
+                    "name": s.name,
+                    "status": s.status,
+                    "message": s.message,
+                    "progress": s.progress,
+                    "elapsed_seconds": s.elapsed_seconds,
+                    "error_detail": s.error_detail,
                 }
+                for s in job.steps
+            ]
+            payload["clips_count"] = len(job.clips)
+
+            # Send only when something changes (de-duplicate)
+            current_key = (job.status.value, job.total_progress, job.current_step_name)
+            if (job.total_progress != last_progress or job.status != last_status):
+                last_progress = job.total_progress
+                last_status = job.status
                 yield f"data: {json.dumps(payload)}\n\n"
 
-            # Stop streaming when job is terminal
+            # Terminate stream on final states
             if job.status.value in ("completed", "failed"):
-                yield f"data: {json.dumps({'type': 'done', 'status': job.status.value})}\n\n"
+                final = {"type": "done", "status": job.status.value,
+                         "clips_count": len(job.clips), "error": job.error}
+                yield f"data: {json.dumps(final)}\n\n"
                 break
 
             await asyncio.sleep(1.0)
@@ -130,6 +133,7 @@ async def stream_progress(job_id: str):
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         },
     )
 

@@ -15,8 +15,8 @@ librosa==0.10.1                 # Audio feature extraction
 soundfile==0.12.1               # Audio I/O
 
 # ── Video Processing ─────────────────────────────────────────────
-moviepy==1.0.3                  # Video editing
-opencv-python-headless==4.9.0.80 # Computer vision (no GUI deps)
+moviepy==1.0.3                   # Video editing
+opencv-python-headless>=4.13.0.0  # Computer vision (no GUI deps)
 
 # ── Face Detection ────────────────────────────────────────────────
 mediapipe==0.10.14              # Face tracking for smart crop

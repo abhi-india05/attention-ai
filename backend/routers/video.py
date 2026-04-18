@@ -12,9 +12,9 @@ from fastapi.responses import FileResponse
 
 from attentionx.backend.config import UPLOAD_DIR, CLIPS_DIR, PLATFORM_PRESETS
 from attentionx.backend.models.schemas import (
-    UploadResponse, ClipsResponse, ProcessRequest, JobStatus, Platform
+    UploadResponse, ClipsResponse, ProcessRequest, JobStatus, Platform, StatusResponse
 )
-from attentionx.backend.models.job import create_job, get_job, get_all_jobs
+from attentionx.backend.models.job import create_job, get_job, get_all_jobs, build_status_response
 from attentionx.utils.file_utils import get_video_metadata, safe_filename
 from attentionx.backend.pipeline import run_pipeline
 
@@ -121,9 +121,29 @@ async def process_video(
     }
 
 
-@router.get("/status/{job_id}")
+@router.get("/status/{job_id}", response_model=StatusResponse)
 async def get_status(job_id: str):
-    """Get the current status and progress of a processing job."""
+    """
+    Lightweight polling endpoint for real-time status.
+
+    Returns:
+        {
+          job_id, current_step, progress (0-100), message,
+          status, eta_seconds, elapsed_seconds, steps_summary
+        }
+
+    Poll this every 1-2 seconds while status == 'processing'.
+    Switch to GET /full-status/{job_id} or SSE /stream/{job_id} for full details.
+    """
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return build_status_response(job)
+
+
+@router.get("/full-status/{job_id}")
+async def get_full_status(job_id: str):
+    """Full JobState including steps timing, clips, emotion timeline."""
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")

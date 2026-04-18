@@ -1,6 +1,11 @@
 """
-AttentionX – Pydantic Schemas
+AttentionX – Pydantic Schemas (Enhanced)
 All request/response models for the API.
+
+v2 additions:
+  - ProcessingStep now tracks timing (started_at, elapsed_seconds)
+  - JobState includes ETA, pipeline_started_at, current_step_name
+  - StatusResponse for the simple GET /status/{job_id} polling endpoint
 """
 
 from __future__ import annotations
@@ -97,14 +102,20 @@ class ClipResult(BaseModel):
     transcript_excerpt: str = ""
 
 
-# ── Job ───────────────────────────────────────────────────────────────────────
+# ── Pipeline Step (v2: timing-aware) ─────────────────────────────────────────
 
 class ProcessingStep(BaseModel):
     name: str
-    status: str   # "pending" | "running" | "done" | "error"
+    status: str           # "pending" | "running" | "done" | "error"
     message: str = ""
-    progress: int = 0  # 0–100
+    progress: int = 0     # 0–100
+    started_at: Optional[str] = None   # ISO timestamp when step started
+    completed_at: Optional[str] = None # ISO timestamp when step finished
+    elapsed_seconds: Optional[float] = None  # How long the step took
+    error_detail: Optional[str] = None  # Error message if status=="error"
 
+
+# ── Job (v2: ETA + current step tracking) ────────────────────────────────────
 
 class JobState(BaseModel):
     job_id: str
@@ -118,6 +129,28 @@ class JobState(BaseModel):
     error: Optional[str] = None
     emotion_timeline: List[EmotionPoint] = []
     total_progress: int = 0
+    # ETA tracking
+    pipeline_started_at: Optional[str] = None
+    current_step_name: Optional[str] = None   # Name of currently running step
+    eta_seconds: Optional[float] = None       # Estimated seconds remaining
+    elapsed_total_seconds: Optional[float] = None  # Total elapsed since pipeline start
+
+
+# ── Simple status response (for GET /status/{id} polling) ────────────────────
+
+class StatusResponse(BaseModel):
+    """
+    Lightweight status payload for polling clients.
+    Matches the spec: { job_id, current_step, progress, message, status, eta_seconds }
+    """
+    job_id: str
+    current_step: str
+    progress: int
+    message: str
+    status: str
+    eta_seconds: Optional[float] = None
+    elapsed_seconds: Optional[float] = None
+    steps_summary: List[Dict[str, Any]] = []  # [{name, status, elapsed}] for timeline
 
 
 # ── Request / Response ────────────────────────────────────────────────────────

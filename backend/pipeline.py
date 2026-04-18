@@ -93,45 +93,75 @@ def _pipeline_sync(
 
     try:
         # ── Step 1: Extract Audio ─────────────────────────────────────────────
-        update_step(job_id, "audio_extraction", "running", "Extracting audio track...", 10)
-        temp_audio_path = extract_audio(video_path, job_clip_dir)
-        update_step(job_id, "audio_extraction", "done", "Audio extracted", 100)
+        update_step(job_id, "audio_extraction", "running",
+                    "Extracting audio track from video...", 10)
+        try:
+            temp_audio_path = extract_audio(video_path, job_clip_dir)
+        except Exception as e:
+            update_step(job_id, "audio_extraction", "error",
+                        f"Audio extraction failed: {e}", error_detail=str(e))
+            raise
+        update_step(job_id, "audio_extraction", "done",
+                    "✓ Audio track extracted successfully", 100)
 
         # ── Step 2: Transcribe ────────────────────────────────────────────────
-        update_step(job_id, "transcription", "running", "Running Groq transcription...", 5)
-        transcript = transcribe(temp_audio_path)
+        update_step(job_id, "transcription", "running",
+                    "Running Groq Whisper transcription... (this takes a moment)", 5)
+        try:
+            transcript = transcribe(temp_audio_path)
+        except Exception as e:
+            update_step(job_id, "transcription", "error",
+                        f"Transcription failed: {e}", error_detail=str(e))
+            raise
         update_step(job_id, "transcription", "done",
-                    f"Transcribed {len(transcript.segments)} segments in {transcript.language}", 100)
+                    f"✓ Transcribed {len(transcript.segments)} segments · language: {transcript.language}", 100)
 
         if not transcript.segments:
-            raise ValueError("No speech detected in video")
+            raise ValueError("No speech detected in video – ensure the video has audible speech")
 
         # ── Step 3: Emotion Analysis ──────────────────────────────────────────
-        update_step(job_id, "emotion_analysis", "running", "Analyzing emotional peaks...", 20)
-        emotion_timeline = analyze_emotions(temp_audio_path, transcript)
+        update_step(job_id, "emotion_analysis", "running",
+                    "Analyzing emotional peaks and valence...", 20)
+        try:
+            emotion_timeline = analyze_emotions(temp_audio_path, transcript)
+        except Exception as e:
+            update_step(job_id, "emotion_analysis", "error",
+                        f"Emotion analysis failed: {e}", error_detail=str(e))
+            raise
         update_step(job_id, "emotion_analysis", "done",
-                    f"Emotion timeline: {len(emotion_timeline)} data points", 100)
+                    f"✓ Emotion timeline built · {len(emotion_timeline)} data points", 100)
 
         # ── Step 4: Virality Scoring ──────────────────────────────────────────
         update_step(job_id, "virality_scoring", "running",
-                    "Computing virality scores (LLM analysis in progress)...", 10)
-        scored_segments = score_segments(transcript, temp_audio_path, emotion_timeline)
+                    "Scoring segments across 5 virality signals (AI analysis)...", 10)
+        try:
+            scored_segments = score_segments(transcript, temp_audio_path, emotion_timeline)
+        except Exception as e:
+            update_step(job_id, "virality_scoring", "error",
+                        f"Virality scoring failed: {e}", error_detail=str(e))
+            raise
+        top_score = f"{scored_segments[0][1].total:.2f}" if scored_segments else "N/A"
         update_step(job_id, "virality_scoring", "done",
-                    f"Scored {len(scored_segments)} segments. "
-                    f"Top score: {scored_segments[0][1].total:.2f}" if scored_segments else "No segments", 100)
+                    f"✓ Scored {len(scored_segments)} segments · top score: {top_score}", 100)
 
         # ── Step 5: Clip Detection ────────────────────────────────────────────
-        update_step(job_id, "clip_detection", "running", "Detecting best moments...", 30)
-        raw_clips = generate_clips(
-            video_path=video_path,
-            scored_segments=scored_segments,
-            transcript=transcript,
-            platform=platform,
-            max_clips=max_clips,
-            job_id=job_id,
-        )
+        update_step(job_id, "clip_detection", "running",
+                    "Detecting highest-scoring viral moments...", 30)
+        try:
+            raw_clips = generate_clips(
+                video_path=video_path,
+                scored_segments=scored_segments,
+                transcript=transcript,
+                platform=platform,
+                max_clips=max_clips,
+                job_id=job_id,
+            )
+        except Exception as e:
+            update_step(job_id, "clip_detection", "error",
+                        f"Clip detection failed: {e}", error_detail=str(e))
+            raise
         update_step(job_id, "clip_detection", "done",
-                    f"Detected {len(raw_clips)} viral moments", 100)
+                    f"✓ Detected {len(raw_clips)} viral moments", 100)
 
         # ── Step 6–10: Per-clip processing ───────────────────────────────────
         total_clips = len(raw_clips)
@@ -255,8 +285,15 @@ def _pipeline_sync(
         logger.info(f"Pipeline complete for job {job_id}: {len(final_clips)} clips")
 
     except Exception as e:
-        logger.error(f"Pipeline error: {e}", exc_info=True)
-        set_job_error(job_id, f"Pipeline failed: {str(e)}")
+        logger.error(f"Pipeline error for job {job_id}: {e}", exc_info=True)
+        # Find the currently-running step and mark it as errored
+        from attentionx.backend.models.job import get_job as _get_job
+        job = _get_job(job_id)
+        if job:
+            running_step = next((s.name for s in job.steps if s.status == "running"), None)
+        else:
+            running_step = None
+        set_job_error(job_id, str(e), step_name=running_step)
         raise
     finally:
         # Cleanup temp audio
