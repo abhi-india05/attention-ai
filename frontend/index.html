@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AttentionX – AI-powered content repurposing engine. Transform long videos into viral short-form clips automatically." />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>AttentionX – Viral Clip Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- ── Animated background ── -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-1" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-2" aria-hidden="true"></div>
+
+  <!-- ── Navigation ── -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <div class="brand-icon" aria-hidden="true">⚡</div>
+        <span class="brand-name">Attention<span class="brand-x">X</span></span>
+        <span class="brand-badge">AI</span>
+      </div>
+      <div class="nav-links">
+        <a href="#upload-section" class="nav-link">Upload</a>
+        <a href="#features-section" class="nav-link">Features</a>
+        <a href="/api/docs" target="_blank" class="nav-link" rel="noopener">API</a>
+      </div>
+      <div class="nav-status" id="nav-status">
+        <span class="status-dot online" aria-label="System online"></span>
+        <span>System Ready</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <header class="hero" role="banner">
+    <div class="hero-content">
+      <div class="hero-badge">🏆 Hackathon Edition</div>
+      <h1 class="hero-title">
+        Turn Any Video Into
+        <span class="gradient-text">Viral Clips</span>
+        — Automatically
+      </h1>
+      <p class="hero-subtitle">
+        AttentionX uses AI to detect the most compelling moments in long-form content,
+        crop them to 9:16, add captions, and write viral hooks — in minutes, not hours.
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">5×</span>
+          <span class="stat-label">Virality Signals</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">9:16</span>
+          <span class="stat-label">Auto Crop</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">10×</span>
+          <span class="stat-label">Faster Editing</span>
+        </div>
+      </div>
+      <a href="#upload-section" class="cta-btn" id="hero-cta">
+        <span>Start Processing</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="phone-mockup">
+        <div class="phone-screen">
+          <div class="viral-badge">🔥 VIRAL</div>
+          <div class="phone-caption-demo">
+            <div class="caption-word highlight">NOBODY</div>
+            <div class="caption-word">talks about</div>
+            <div class="caption-word highlight">THIS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main App ── -->
+  <main role="main">
+
+    <!-- ── Upload Section ── -->
+    <section id="upload-section" class="section" aria-label="Video upload">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Upload Your Video</h2>
+          <p class="section-subtitle">Lectures, podcasts, interviews, vlogs — anything works</p>
+        </div>
+
+        <!-- Platform Selector -->
+        <div class="platform-selector" role="group" aria-label="Select target platform">
+          <button class="platform-btn active" data-platform="tiktok" id="btn-tiktok" aria-pressed="true">
+            <span class="platform-icon">🎵</span>
+            <span>TikTok</span>
+          </button>
+          <button class="platform-btn" data-platform="reels" id="btn-reels" aria-pressed="false">
+            <span class="platform-icon">📸</span>
+            <span>Reels</span>
+          </button>
+          <button class="platform-btn" data-platform="youtube_shorts" id="btn-shorts" aria-pressed="false">
+            <span class="platform-icon">▶️</span>
+            <span>Shorts</span>
+          </button>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="upload-card" id="upload-card">
+          <div class="drop-zone" id="drop-zone" role="button" tabindex="0"
+               aria-label="Drop video here or click to browse"
+               aria-describedby="upload-hint">
+            <div class="drop-icon" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+            </div>
+            <h3 class="drop-title">Drop your video here</h3>
+            <p class="drop-subtitle" id="upload-hint">MP4, MOV, AVI, MKV, WebM · Up to 2GB</p>
+            <button class="browse-btn" id="browse-btn" type="button">Browse Files</button>
+            <input type="file" id="file-input" accept="video/*" class="hidden-input" aria-label="Video file input" />
+          </div>
+
+          <!-- Upload progress -->
+          <div class="upload-progress-area hidden" id="upload-progress-area">
+            <div class="file-info" id="file-info">
+              <div class="file-icon">🎬</div>
+              <div class="file-details">
+                <span class="file-name" id="file-name-display">video.mp4</span>
+                <span class="file-size" id="file-size-display">0 MB</span>
+              </div>
+              <button class="remove-file-btn" id="remove-file-btn" aria-label="Remove file">✕</button>
+            </div>
+            <div class="upload-bar-wrap">
+              <div class="upload-bar" id="upload-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+            <span class="upload-pct" id="upload-pct">Uploading...</span>
+          </div>
+        </div>
+
+        <!-- Clip Settings -->
+        <div class="settings-row">
+          <div class="setting-group">
+            <label for="max-clips" class="setting-label">Max Clips</label>
+            <input type="range" id="max-clips" min="1" max="10" value="5" class="setting-slider" />
+            <span class="setting-value" id="max-clips-val">5</span>
+          </div>
+          <div class="setting-group">
+            <label for="min-duration" class="setting-label">Min Duration (s)</label>
+            <input type="range" id="min-duration" min="10" max="60" value="20" class="setting-slider" />
+            <span class="setting-value" id="min-duration-val">20s</span>
+          </div>
+          <div class="setting-group">
+            <label for="max-duration" class="setting-label">Max Duration (s)</label>
+            <input type="range" id="max-duration" min="30" max="180" value="60" class="setting-slider" />
+            <span class="setting-value" id="max-duration-val">60s</span>
+          </div>
+        </div>
+
+        <button class="process-btn" id="process-btn" disabled type="button">
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text">Process Video</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Processing Section ── -->
+    <section id="processing-section" class="section hidden" aria-label="Processing status" aria-live="polite">
+      <div class="container">
+        <div class="processing-card">
+          <div class="processing-header">
+            <div class="processing-spinner" aria-hidden="true"></div>
+            <div>
+              <h2 class="processing-title">Analyzing Your Video</h2>
+              <p class="processing-subtitle" id="processing-subtitle">Extracting audio...</p>
+            </div>
+            <div class="processing-pct" id="processing-pct" aria-label="Processing progress">0%</div>
+          </div>
+
+          <!-- Master progress bar -->
+          <div class="master-progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Overall pipeline progress" id="master-progress-wrap">
+            <div class="master-progress-bar" id="master-progress-bar"></div>
+          </div>
+
+          <!-- Pipeline steps -->
+          <div class="pipeline-steps" id="pipeline-steps" role="list">
+            <!-- Generated by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Results Section ── -->
+    <section id="results-section" class="section hidden" aria-label="Generated clips">
+      <div class="container">
+
+        <!-- Results Header + Emotion Timeline -->
+        <div class="results-header">
+          <div>
+            <h2 class="section-title">Your Viral Clips</h2>
+            <p class="section-subtitle" id="results-subtitle">Generated 0 clips</p>
+          </div>
+          <button class="new-video-btn" id="new-video-btn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Video
+          </button>
+        </div>
+
+        <!-- Emotion Timeline -->
+        <div class="timeline-card" id="emotion-timeline-card" aria-label="Emotion timeline graph">
+          <div class="timeline-header">
+            <h3>📊 Emotion Timeline</h3>
+            <p class="timeline-subtitle">Peaks show where viral moments were detected</p>
+          </div>
+          <canvas id="emotion-chart" height="120" aria-label="Emotion arousal and valence over time"></canvas>
+          <div class="timeline-legend">
+            <span class="legend-item"><span class="legend-dot arousal"></span>Energy (Arousal)</span>
+            <span class="legend-item"><span class="legend-dot valence"></span>Sentiment (Valence)</span>
+            <span class="legend-item"><span class="legend-dot clips-marker"></span>Clip Moments</span>
+          </div>
+        </div>
+
+        <!-- Clips Grid -->
+        <div class="clips-grid" id="clips-grid" role="list">
+          <!-- Generated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Features Section ── -->
+    <section id="features-section" class="section features-section" aria-label="Features">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Why AttentionX Wins</h2>
+          <p class="section-subtitle">6 differentiating features built for virality</p>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <h3>5-Signal Virality Score</h3>
+            <p>Audio intensity, emotion, semantic importance, viral keywords, and curiosity hooks — all combined into one score.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <h3>Platform Optimization</h3>
+            <p>TikTok, Reels, and YouTube Shorts each get tailored caption styles, durations, and hashtag counts.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🎙️</div>
+            <h3>Emotion Timeline Graph</h3>
+            <p>Visualize emotional peaks and valleys in your video to understand why certain moments were chosen.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🪝</div>
+            <h3>AI Hook Ranker</h3>
+            <p>3 hooks generated per clip across revelation, curiosity, and value styles — ranked by predicted CTR.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">#️⃣</div>
+            <h3>Auto Hashtag Generator</h3>
+            <p>Topic detection + LLM analysis produces the perfect mix of broad reach and niche community hashtags.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔤</div>
+            <h3>Word-Level Captions</h3>
+            <p>Whisper word timestamps ensure perfect caption sync. Key words automatically highlighted for emphasis.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Clip Detail Modal ── -->
+  <div class="modal-overlay hidden" id="clip-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <button class="modal-close" id="modal-close" type="button" aria-label="Close modal">✕</button>
+
+      <div class="modal-body">
+        <!-- Left: Video preview -->
+        <div class="modal-video-wrap">
+          <video id="modal-video" controls playsinline class="modal-video" aria-label="Clip preview">
+            Your browser does not support video playback.
+          </video>
+          <div class="modal-video-badge" id="modal-rank" aria-label="Clip rank">#1</div>
+        </div>
+
+        <!-- Right: Details -->
+        <div class="modal-details">
+          <h2 class="modal-title" id="modal-title">Clip Title</h2>
+
+          <!-- Virality Radar -->
+          <div class="virality-section">
+            <h3 class="detail-section-title">Virality Breakdown</h3>
+            <div class="virality-bars" id="modal-virality-bars">
+              <!-- Generated by JS -->
+            </div>
+            <div class="total-score-row">
+              <span>Total Score</span>
+              <span class="total-score" id="modal-total-score">0.00</span>
+            </div>
+          </div>
+
+          <!-- Hooks -->
+          <div class="hooks-section">
+            <h3 class="detail-section-title">🪝 Viral Hooks (Ranked)</h3>
+            <div class="hooks-list" id="modal-hooks">
+              <!-- Generated by JS -->
+            </div>
+          </div>
+
+          <!-- Hashtags -->
+          <div class="hashtags-section">
+            <h3 class="detail-section-title">#️⃣ Hashtags</h3>
+            <div class="hashtags-wrap" id="modal-hashtags">
+              <!-- Generated by JS -->
+            </div>
+          </div>
+
+          <!-- Emotion mini chart -->
+          <div class="emotion-mini-section">
+            <h3 class="detail-section-title">📈 Emotion Profile</h3>
+            <canvas id="modal-emotion-chart" height="80" aria-label="Clip emotion profile"></canvas>
+          </div>
+
+          <!-- Actions -->
+          <div class="modal-actions">
+            <button class="action-btn primary" id="modal-download-btn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download Clip
+            </button>
+            <button class="action-btn secondary" id="modal-copy-hooks-btn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy Hooks
+            </button>
+            <button class="action-btn secondary" id="modal-copy-hashtags-btn" type="button">
+              Copy Hashtags
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toast Notifications ── -->
+  <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
